@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Scheduler</title>
+    <link rel="icon" type="image/png" href="logoImg.png">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap"
+          rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="./styles.css">
+
+</head>
+<body>
+<canvas id="bgCanvas"
+        style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:0.55;"></canvas>
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">Computing...</div>
+</div>
+
+<!-- Home Page -->
+<div id="homePage">
+    <section class="hero">
+        <div class="hero-badge">CPU Scheduling in Operating Systems</div>
+        <h1 class="hero-title">CPU Scheduler</h1>
+        <p class="hero-sub">
+            Understand how operating systems allocate CPU time &
+            visualize FCFS, SJF, Round Robin and SRTF side by side.
+        </p>
+        <button class="btn btn-simulate" onclick="showApp()">
+            ▶ &nbsp;Get Started
+        </button>
+    </section>
+    <section class="features-grid">
+        <div class="feat-card">
+            <div class="feat-icon">📊</div>
+            <div class="feat-title">Gantt Chart</div>
+            <div class="feat-desc">See scheduling decisions rendered as an animated timeline from t=0</div>
+        </div>
+        <div class="feat-card">
+            <div class="feat-icon">⏱</div>
+            <div class="feat-title">Step-by-Step Simulation</div>
+            <div class="feat-desc">Watch the CPU and ready queue update in real time, step by step</div>
+        </div>
+        <div class="feat-card">
+            <div class="feat-icon">⚖️</div>
+            <div class="feat-title">Compare Algorithms</div>
+            <div class="feat-desc">Run all algorithms on the same data and see which one wins</div>
+        </div>
+    </section>
+    <section class="algo-strip">
+        <span class="algo-pill">FCFS</span>
+        <span class="algo-pill">SJF</span>
+        <span class="algo-pill">Round Robin</span>
+        <span class="algo-pill">SRTF</span>
+    </section>
+</div>
+
+<!-- App Page -->
+<div id="appPage" style="display:none">
+    <div style="padding: 16px 20px 0;">
+        <button class="btn btn-secondary" onclick="showHome()">← Home</button>
+    </div>
+
+    <div class="wrapper">
+
+        <header>
+            <div class="logo-line">
+                <div class="logo-icon">CPU</div>
+                <h1>Scheduler</h1>
+            </div>
+            <p class="subtitle">CPU Scheduling Algorithms &nbsp;/&nbsp; Gantt Chart Generator</p>
+        </header>
+
+        <!-- Input Panel -->
+        <div class="panel">
+            <div class="panel-title">Process Configuration</div>
+
+            <div class="controls-grid">
+                <div class="field">
+                    <label>Number of Processes</label>
+                    <input type="number" id="numProc" min="1" max="10" value="3" oninput="generateTable()">
+                </div>
+                <div class="field">
+                    <label>Algorithm</label>
+                    <select id="algo" onchange="toggleQuantum()">
+                        <option value="fcfs">FCFS – First Come First Serve</option>
+                        <option value="sjf">SJF – Shortest Job First</option>
+                        <option value="rr">Round Robin (RR)</option>
+                        <option value="srtf">SRTF – Preemptive SJF</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="quantum-row" id="quantumRow">
+                <div class="field" style="width:180px">
+                    <label>Time Quantum <span id="quantumUsedNote"
+                                              style="color:var(--accent);font-size:0.65rem;letter-spacing:1px">(used for RR)</span></label>
+                    <input type="number" id="quantum" min="1" value="2" oninput="updateQuantumNote()">
+                </div>
+                <div id="quantumLiveLabel"
+                     style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);margin-top:18px;transition:color 0.2s">
+                    q = <span id="qVal" style="color:var(--accent);font-weight:bold">2</span>
+                </div>
+            </div>
+
+            <!-- Process Input Table -->
+            <table class="proc-table" id="procTable">
+                <thead>
+                <tr>
+                    <th>Process</th>
+                    <th>Arrival Time</th>
+                    <th>Burst Time</th>
+                    <th id="extraHeader" style="display:none">Priority</th>
+                </tr>
+                </thead>
+                <tbody id="procBody"></tbody>
+            </table>
+
+            <div class="error-msg" id="errMsg"></div>
+
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="run()">▶ &nbsp;Run</button>
+                <button class="btn btn-simulate" id="btnSimulate" onclick="startSimulation()">⏱ &nbsp;Simulate
+                    Step-by-Step
+                </button>
+                <button class="btn btn-stop" id="btnStop" onclick="stopSimulation()" style="display:none">■ &nbsp;Stop
+                </button>
+                <button class="btn btn-primary compare-btn" onclick="runComparison()">⚖️ &nbsp;Compare All</button>
+                <button class="btn btn-secondary" onclick="clearAll()">↺ &nbsp;Reset</button>
+                <button class="btn btn-secondary" onclick="loadExample()">⚡ Example</button>
+            </div>
+        </div>
+
+        <!-- Backend Connection Warning -->
+        <div class="backend-warn" id="backendWarn">
+            ⚠ Cannot reach the backend at <strong>http://localhost:8080</strong>. Make sure the Spring Boot server is
+            running:<br>
+            <code style="color:var(--accent)">cd os-scheduler-backend &amp;&amp; mvn spring-boot:run</code>
+        </div>
+
+        <!-- Results -->
+        <div id="results">
+
+            <!-- Insight Panel -->
+            <div class="insight-panel" id="insightPanel">
+                <div class="insight-header">
+                    <span class="insight-icon">📑</span>
+                    <span class="insight-title">Algorithm Analysis</span>
+                    <span class="insight-algo-tag" id="insightAlgoTag"></span>
+                </div>
+                <div class="insight-body" id="insightBody"></div>
+                <ul class="insight-bullets" id="insightBullets"></ul>
+                <div class="insight-verdict" id="insightVerdict"></div>
+            </div>
+
+            <!-- Gantt Chart -->
+            <div class="panel">
+                <div class="panel-title">
+                    Gantt Chart
+                    <span class="algo-badge" id="algoBadge"></span>
+                </div>
+
+                <!-- Simulation Status Bar — lives here, above the chart -->
+                <div class="sim-bar" id="simBar">
+                    <span class="sim-cpu-label">CPU ▶</span>
+                    <span class="sim-pid" id="simPid">—</span>
+                    <span class="sim-time">t = <span id="simTime">0</span></span>
+                    <div class="sim-progress-wrap">
+                        <div class="sim-progress-fill" id="simFill"></div>
+                    </div>
+                    <span class="sim-step-counter" id="simStepCounter">Step 0 / 0</span>
+                    <div class="sim-speed-wrap">
+                        <span>Speed</span>
+                        <input type="range" id="simSpeed" min="1" max="5" value="3" oninput="updateSimSpeed()">
+                        <span id="simSpeedLabel">3×</span>
+                    </div>
+                    <button class="btn btn-replay" id="btnReplay" onclick="replaySimulation()" style="display:none">↺
+                        Replay
+                    </button>
+                </div>
+
+                <div class="gantt-scroll" id="ganttScroll">
+                    <div class="gantt-container" id="ganttContainer"></div>
+                </div>
+
+                <!-- Ready Queue Panel -->
+                <div class="panel" id="readyQueuePanel" style="margin-top:16px;">
+                    <div class="panel-title">Ready Queue <span class="rq-algo-tag" id="rqAlgoTag"></span></div>
+                    <div class="rq-display" id="rqDisplay">
+                        <span class="rq-label">Queue at t=<span id="rqTime">0</span>:</span>
+                        <div class="rq-slots" id="rqSlots"></div>
+                        <span class="rq-empty" id="rqEmpty">— Empty —</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Table -->
+            <div class="panel">
+                <div class="panel-title">Results Table</div>
+                <div style="overflow-x:auto">
+                    <table class="out-table" id="outTable"></table>
+                </div>
+                <!-- CSV Download Button -->
+                <div class="btn-row" style="margin-top:18px;justify-content:flex-end">
+                    <button class="btn btn-pdf" id="btnCsv" onclick="downloadCSV()">
+                        📥 &nbsp;Download CSV
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div><!-- end .wrapper -->
+</div><!-- end #appPage -->
+
+<!-- ── Compare Page ── -->
+<div id="comparePage" style="display:none">
+    <div class="compare-page-wrapper">
+
+        <div class="compare-page-header">
+            <button class="btn btn-secondary" onclick="showApp()" style="flex-shrink:0">← Back</button>
+            <span class="compare-page-title">Algorithm Comparison</span>
+            <span class="compare-page-subtitle" id="cmpSubtitle"></span>
+        </div>
+
+        <div class="winner-banner" id="winnerBanner"></div>
+
+        <div class="charts-grid">
+            <div class="chart-box">
+                <div class="chart-title">Avg Waiting Time (lower = better)</div>
+                <canvas id="chartWT"></canvas>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Avg Turnaround Time (lower = better)</div>
+                <canvas id="chartTAT"></canvas>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Max Waiting Time (lower = better)</div>
+                <canvas id="chartMaxWT"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-box" style="margin-bottom:20px">
+            <div class="chart-title">Per-Process Waiting Time by Algorithm</div>
+            <canvas id="chartPerProc" height="160"></canvas>
+        </div>
+
+        <div style="overflow-x:auto; margin-bottom:20px">
+            <table class="cmp-table" id="cmpTable"></table>
+        </div>
+        <div class="quantum-note" id="quantumNote"></div>
+
+    </div>
+</div>
+<script src="./app.js"></script>
+
+<footer>
+    All Rights Reserved &nbsp;·&nbsp; Built by <span style="color:var(--accent)">Prabhakar Shrestha</span> &nbsp;·&nbsp; © 2026
+</footer>
+</body>
+</html>
