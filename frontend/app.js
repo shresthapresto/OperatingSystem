@@ -78,7 +78,7 @@
     }
 
     // Backend API
-    const API_BASE = 'https://operatingsystem-backend.onrender.com';
+    const API_BASE = 'https://operatingsystem-backend.onrender.com/api';
 
     function showLoading(msg = 'Computing...') {
       document.getElementById('loadingText').textContent = msg;
